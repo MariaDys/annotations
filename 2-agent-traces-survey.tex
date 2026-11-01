@@ -1,0 +1,83 @@
+\section{From Agent Traces to Trust: A Survey of Evidence Tracing and Execution Provenance in LLM Agents}
+
+Yiqi Wang, Jiaqi Zhang, Zhangkai Wu, Taotao Cai, Zirui Liu, Zequn Sun, Mingkai Zheng,
+Manqing Dong, Yu-Xuan Qiu, Xuefei Yin, Yanming Zhu. \emph{From Agent Traces to Trust:
+A Survey of Evidence Tracing and Execution Provenance in LLM Agents.} arXiv:2606.04990v6.
+
+\cite{wang2026survey}
+
+\subsection{Ключевые идеи, математическое описание метода}
+Обзор вводит два понятия и формализует связь между ними. \emph{Execution provenance}~--
+типизированный граф прогона; \emph{evidence tracing}~-- его проекция на отношения
+поддержки. Лог отвечает на вопрос <<что произошло и в каком порядке>>, граф~-- <<что от чего
+зависело>>; порядок во времени связью не считается.
+
+Граф одного прогона (прил.~C.1):
+\begin{equation}
+G = (V, E, \tau, \lambda, \alpha), \qquad V = E_v \uplus X \uplus A,
+\end{equation}
+где $\tau$ приписывает узлу тип и делит узлы на единицы-свидетельства $E_v$ (артефакты
+с содержимым $\rho(v)$: запрос, документ, вывод инструмента, параметр, утверждение),
+единицы выполнения $X$ (события с исполнителем и интервалом времени: шаг рассуждения,
+вызов инструмента) и исполнителей $A$; $E$~-- рёбра мультиграфа с отображениями
+$\mathrm{src},\mathrm{tgt}$; $\lambda$~-- метка из
+$R^+=R\cup\{\text{Support-candidate}\}$, где $R$ содержит девять основных отношений;
+$\alpha$~-- атрибуты,
+в том числе \emph{происхождение} ребра. Отношения делятся на семейства
+\begin{equation}
+\begin{aligned}
+R_{sem}&=\{\text{Support},\text{Contradict},\text{Invalidate}\},\\
+R_{der}&=\{\text{Derive}\},\\
+R_{proc}&=\{\text{Use},\text{Generate},\text{Depend-on},\text{Trigger},\text{Update}\}.
+\end{aligned}
+\end{equation}
+с сигнатурами по типам узлов и временными ограничениями (табл.~11): например,
+$\text{Derive}: E_v\to E_v$, $t(s)<t(t)$; $\text{Depend-on}: X\to E_v\cup X$, устанавливается
+контрфактически. Происхождение ребра: \emph{Instrumented} (записано харнессом),
+\emph{Inferred} (вынесено моделью или разметчиком), \emph{Declared} (заявлено агентом),
+\emph{Derived} (вычислено из графа). Требование обзора: Inferred и Declared рёбра должны
+получать проверку, соответствующую смыслу отношения: например, разметкой поддержки
+или вмешательствами для гипотезы о влиянии. Сам факт записи не удостоверяет связь.
+
+\subsection{Алгоритм}
+Проекция $\pi: G\mapsto\pi(G)$ (прил.~C.1), пять правил, вычисляемых на исходном $G$:
+\begin{enumerate}
+  \item сохранить рёбра с $\lambda(e)\in R_{sem}\cup R_{der}\cup\{\text{Support-candidate}\}$;
+  \item отбросить все рёбра из $R_{proc}$;
+  \item добавить $\text{Support-candidate}(d,c)$ для $d\in E_v$, $c\in C$ (утверждающие
+        единицы), если в $G$ есть путь потока содержимого из $d$ в $c$ (Derive вперёд,
+        Generate вперёд, Use назад, хотя бы одно ребро Use или Generate) и между $d$ и $c$
+        ещё нет Support или Invalidate; такое ребро утверждает возможный вклад содержимого,
+        но не поддержку, его происхождение~-- Derived;
+  \item оставить узлы-свидетельства, инцидентные сохранённым рёбрам, и шаги~-- цели Support
+        или Invalidate;
+  \item сохранить атрибуты содержимого, хешей, времени, доверия, происхождения и assurance;
+        для Support-candidate сохранить идентификатор пути-свидетеля;
+        отбросить атрибуты выполнения.
+\end{enumerate}
+Свойства: $\pi$ не инъективна (разные прогоны дают одну трассировку свидетельств), обоснована
+(не добавляет Support), отбрасывает всё влияние без поддержки (Depend-on, Trigger),
+идемпотентна: $\pi(\pi(G))=\pi(G)$.
+
+\subsection{Наборы данных}
+Собственных данных нет. Каталог бенчмарков (табл.~8, разд.~6): RAG-атрибуция (ALCE, FActScore,
+RAGTruth), трассы и безопасность инструментов (TRAIL, MAST, AgenTracer/TracerTraj, InjecAgent,
+AgentDojo, ToolEmu, OpenAgentSafety, MCP-SafetyBench), память и многоагентность.
+Вывод разд.~6.5 ограничен собственным каталогом: ни один из его 25 пунктов не оценивает
+полную цепочку провенанса. Отдельные отношения уже размечаются: Support в атрибуции,
+source-to-sink в taint-бенчмарках; единого эталона полного графа прогона нет.
+
+\subsection{Метрики}
+Табл.~7: четыре группы со статусом зрелости. Established~-- evidence recall, citation precision,
+faithfulness (из RAG-атрибуции). Partly established~-- локализация отказа (TRAIL/MAST).
+\emph{Proposed}~-- trace completeness, provenance accuracy, dependency coverage,
+temporal consistency: общепринятых протоколов пока нет. Разд.~6.4 предлагает эталон
+инструментированного харнесса для completeness, ablation/replay для dependency coverage
+и подсчёт временных нарушений для temporal consistency. Для accuracy обсуждаются
+допустимое множество графов, взвешенные оценки рёбер или канонический граф.
+Это программа оценки, а не проведённый авторами эксперимент восстановления связей.
+
+\subsection{Модели}
+Не применимо (обзор). Систематизированы защиты на информационных потоках (CaMeL, FIDES,
+NeuroTaint, Agent-Sentry; разд.~4.2--4.3) и системы наблюдаемости (AgentOps, AgentTrace,
+PROV-AGENT; табл.~3).
