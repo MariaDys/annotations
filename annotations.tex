@@ -1,0 +1,84 @@
+\documentclass[11pt]{extarticle}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}      % кодировка
+\usepackage[utf8]{inputenc}      % кодировка исходного текста
+\usepackage[english,russian]{babel}  % локализация и переносы
+\usepackage{indentfirst}
+\usepackage{csquotes}
+% \bibliographystyle{plain}
+
+\usepackage[
+    backend=biber,     
+    bibstyle=gost-numeric,
+    sorting=none
+]{biblatex}
+\addbibresource{literature.bib}
+
+% \bibliography{literature.bib}
+
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{amstext}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\newtheorem{theorem}{Теорема}[section]
+\newtheorem{lemma}{Лемма}[section]
+\newtheorem{corollary}{Следствие}[section]
+\newtheorem{proposition}{Утверждение}[section]
+\newtheorem{theorem*}{Теорема}
+\newtheorem{lemma*}{Лемма}
+\newtheorem{corollary*}{Следствие}
+\newtheorem{proposition*}{Утверждение}
+\theoremstyle{definition}
+\newtheorem{definition}{Определение}[section]
+\newtheorem{remark}{Замечание}[section]
+\newtheorem{example}{Пример}[section]
+\newtheorem{definition*}{Определение}
+\newtheorem{remark*}{Замечание}
+\newtheorem{example*}{Пример}
+\newtheorem{assumption*}{Предположение}
+
+% page settings
+\usepackage[
+    left=1.8cm,
+    right=1.8cm,
+    top=1.8cm,
+    bottom=1.8cm,
+    bindingoffset=0cm
+]{geometry}
+
+\usepackage{graphicx, hyperref, xcolor}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=teal,
+    filecolor=magenta, 
+    urlcolor=blue,
+    citecolor=olive,
+    pdftitle={Аннотации},
+    % pdfpagemode=FullScreen,
+    linktoc=all
+    }
+
+\usepackage{wrapfig,caption}
+
+% figures
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{floatrow}
+\floatsetup{heightadjust=object}
+
+% math
+\usepackage{amsmath,amsfonts,amssymb,amsthm,mathtools,esint,eucal}
+
+\begin{document}
+
+% \input{main_files/1-provenanceguard.tex}
+% \input{main_files/2-agent-traces-survey.tex}
+% \input{main_files/3-prov-agent.tex}
+% \input{main_files/4-interactive-workflow-provenance.tex}
+% \input{main_files/5-camel.tex}
+\printbibliography
+
+\end{document}
