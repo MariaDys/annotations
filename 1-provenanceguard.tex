@@ -1,0 +1,111 @@
+\section{Safeguarding LLM Agents from Misalignment through Provenance Analysis}
+
+Yining She, Yiliang Liang, Eunsuk Kang. \emph{Safeguarding LLM Agents from Misalignment
+through Provenance Analysis.} ASE~2026, arXiv:2607.01236v2. Репликационный пакет:
+\url{https://github.com/cmu-soda/ProvenanceGuard}, Zenodo 10.5281/zenodo.19342590.
+
+\cite{she2026provenanceguard}
+
+\subsection{Ключевые идеи, математическое описание метода}
+Несогласованность (misalignment)~-- действие агента, отклоняющееся от намерения
+пользователя, без злого умысла модели. Три типа: неверный инструмент, неверные параметры,
+неверная интерпретация недоопределённого запроса. Ключевая идея: действие согласовано,
+если оно \emph{обосновано прослеживаемыми уликами в контексте}; проверка сводится
+к установлению отношений провенанса между элементами действия и элементами контекста.
+
+Контекст guardrail'а: запрос $q$, документация инструментов $D$ и история
+\begin{equation}
+h = \langle ((t_1,a_1),o_1), \dots, ((t_k,a_k),o_k) \rangle,
+\end{equation}
+где $(t_i,a_i)$~-- вызов инструмента с назначением параметров, $o_i$~-- наблюдаемый вывод.
+Guardrail~-- функция
+\begin{equation}
+\mathrm{guard}(t,a,q,D,h) \in \{\text{Aligned}, \text{Misaligned}\}.
+\end{equation}
+Пять отношений (табл.~1 статьи): $\mathrm{SpecifiedBy}(t,d)$, $\mathrm{ContributeTo}(s,q)$,
+$\mathrm{RelevantTo}(d,s)$, $\mathrm{DerivedFrom}(p,v,e)$, $\mathrm{CanAddress}(d,a,s)$,
+где $s$~-- подзадача из множества $S$, $d\in D$~-- документ инструмента, $e$~-- улика.
+Схематическая запись трёх предикатов:
+\begin{equation}
+\begin{aligned}
+&\mathrm{ToolProven}(t,q,D)\triangleq \exists d\in D,\ s\in S:\\
+&\quad\mathrm{SpecifiedBy}(t,d)\wedge\mathrm{ContributeTo}(s,q)\wedge\mathrm{RelevantTo}(d,s).
+\end{aligned}
+\end{equation}
+\begin{equation}
+\begin{aligned}
+&\mathrm{ParamProven}(a,d_t,s_t,q,h)\triangleq \mathrm{CanAddress}(d_t,a,s_t)\ \wedge\\
+&\quad\forall (p,v)\in a\ \exists e\in E(q,h):\ \mathrm{DerivedFrom}(p,v,e).
+\end{aligned}
+\end{equation}
+\begin{equation}
+\begin{aligned}
+&\mathrm{InterpProven}(t,a,q,D,h,s_t)\triangleq \neg\exists (t',a'):\\
+&\quad(t',a')\not\equiv(t,a)\ \wedge\ \mathrm{Admissible}(t',a',q,D,h,s_t).
+\end{aligned}
+\end{equation}
+Здесь Admissible сокращённо обозначает допустимость альтернативы для той же подзадачи
+по проверкам инструмента и параметров; $\equiv$~-- эквивалентность действий.
+Множество улик $E(q,h)$~-- факты, значения и ограничения, явно присутствующие в $q$
+или в выводах $o_i$ предыдущих вызовов. DerivedFrom не требует точного совпадения:
+значение $1700$ считается выведенным из улики <<два месяца по $850$>>. Параметры делятся
+на \emph{выводимые} (должны иметь источник в контексте) и \emph{генеративные} (свободный
+текст); проверяются только выводимые. В формуле (4) оригинала квантор записан по всему $a$,
+но описание и реализация ограничивают проверку множеством $a_{der}\subseteq a$;
+при $a_{der}=\varnothing$ этап II пропускается.
+
+
+\subsection{Алгоритм}
+Трёхэтапный конвейер с ранней остановкой; каждый этап отвечает за один тип несогласованности.
+\begin{enumerate}
+  \item Фильтр: инструмент должен существовать в $D$ (механически) и быть помечен
+        разработчиком как меняющий среду (по метаданным); только читающие инструменты
+        не проверяются.
+  \item Этап I (инструмент): подзадача $s$ берётся из плана самого агента; LLM проверяет
+        $\mathrm{RelevantTo}(d_t,s)$ и $\mathrm{ContributeTo}(s,q)$.
+  \item Этап II (параметры): LLM определяет множество выводимых параметров $a_{der}\subseteq a$
+        по документации $d_t$, затем для каждого $(p,v)\in a_{der}$ ищет улику $e$ и проверяет
+        $\mathrm{DerivedFrom}$ и $\mathrm{CanAddress}$.
+  \item Этап III (интерпретация): LLM, \emph{не видя предложенного действия}, проверяет,
+        существует ли иное допустимое действие для $s_t$; если да, запрос недоопределён,
+        действие блокируется.
+  \item При провале любого этапа~-- вердикт Misaligned и запрос подтверждения у пользователя.
+\end{enumerate}
+Сравниваемые методы: DirectPrompt (LLM-as-a-judge одним промптом) и ProvePrompt
+(те же три проверки одним промптом, без разделения на этапы).
+
+\subsection{Наборы данных}
+\begin{itemize}
+  \item \emph{Agent-SafetyBench} (подмножество failure mode~2): 188 трасс сгенерированы
+        GPT-5, вручную размечены двумя авторами ($\kappa=0{,}85$), 6 отброшены;
+        итого 148 несогласованных и 34 согласованных трассы, в среднем 2,2 шага.
+  \item \emph{WorkBench}: трассы GPT-4 из бенчмарка; несогласованная~-- хотя бы один вызов
+        расходится с эталонной последовательностью действий (62), task-successful~-- 326.
+        Успешная трасса не обязательно согласована (недоопределённость не размечена).
+  \item План агента для обоих наборов восстановлен GPT-5.
+\end{itemize}
+
+\subsection{Метрики}
+Для пары (метод, LLM) и $R=5$ повторов на трассу:
+\begin{equation}
+\mathrm{ER} = \frac{\sum_{r=1}^{R}\#\mathrm{FN}_r}{N\cdot R}, \qquad
+\mathrm{IR} = \frac{\sum_{r=1}^{R}\#\mathrm{Intervene}_r}{N\cdot R},
+\end{equation}
+где ER считается на несогласованных трассах (пропуски), IR~-- на согласованных
+(ложные вмешательства) или на task-successful (операционная нагрузка). Пять бинарных
+исходов усредняются в оценку трассы $s^{(c)}\in\{0, 0{,}2,\dots,1\}$; статистика~-- средняя
+парная разность $\Delta=\frac1N\sum_c (s^{(c)}_{\mathrm{PG}}-s^{(c)}_{m})$, односторонний
+перестановочный тест со сменой знака (10\,000 перестановок, Монте-Карло), поправка
+Холма по 11 LLM внутри каждой пары методов. Доверительные интервалы не приводятся.
+Результаты: ER на Agent-SafetyBench $44{,}3\%\to14{,}7\%\to2{,}1\%$
+(DirectPrompt~$\to$ ProvePrompt~$\to$ ProvenanceGuard), на WorkBench $32{,}4\%\to20{,}9\%\to18{,}7\%$;
+IR на task-successful WorkBench $31{,}2\%\to13{,}0\%$. Стоимость: $\approx3{,}6$ вызова LLM
+и 3\,979 входных токенов на случай против 1\,303 у DirectPrompt.
+Ограничения: оценка проводится на уровне трасс; отдельные связи не получают
+независимого эталона. Малая выборка согласованных случаев ограничивает выводы об IR;
+отсутствие статистической значимости не доказывает отсутствие ухудшения.
+
+\subsection{Модели}
+11 backbone-моделей: GPT-5, GPT-5-mini, GPT-4.1, GPT-4.1-mini, Gemini-3-flash-preview,
+Gemini-3.1-flash-lite-preview, Gemini-2.5-flash, Gemini-2.5-flash-lite, Claude-sonnet-4.6,
+Claude-haiku-4.5, Qwen-3.5-9B (локально, vLLM). Параметры генерации по умолчанию.
